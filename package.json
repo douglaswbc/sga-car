@@ -1,0 +1,37 @@
+{
+  "name": "sga-v2",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node --env-file=.env scripts/migrate.mjs",
+    "backup": "node --env-file=.env scripts/backup.mjs",
+    "restore": "node --env-file=.env scripts/restore.mjs",
+    "promote:master": "node --env-file=.env scripts/promote-platform-admin.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "@tailwindcss/postcss": "^4.1.18",
+    "next": "^16.0.1",
+    "pg": "^8.23.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.18",
+    "zod": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^16.0.1",
+    "typescript": "^5.7.2"
+  }
+}

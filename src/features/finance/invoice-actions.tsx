@@ -1,0 +1,19 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormMessage } from "@/components/form-message";
+import { Modal } from "@/components/modal";
+import { useToast } from "@/components/toast";
+import { invoiceAdjustmentSchema, invoiceFeeSchema, renegotiationSchema } from "@/features/finance/finance-schema";
+import type { Invoice } from "@/lib/supabase/types";
+
+type Props = { organizationId: string; invoice: Invoice };
+const labels = { discount: "Desconto", additional: "Acréscimo", fine: "Multa", interest: "Juros" } as const;
+
+export function InvoiceActions({ organizationId, invoice }: Readonly<Props>) {
+  const router = useRouter(); const { show } = useToast(); const [open, setOpen] = useState(false); const [mode, setMode] = useState<"adjust" | "fee" | "renegotiate">("adjust"); const [type, setType] = useState<keyof typeof labels>("discount"); const [amount, setAmount] = useState(""); const [dueOn, setDueOn] = useState(invoice.due_on); const [description, setDescription] = useState(""); const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
+  if (invoice.status === "paid" || invoice.status === "cancelled" || invoice.status === "reversed") return null;
+  const save = async () => { const body = mode === "renegotiate" ? { action: "renegotiate", organizationId, invoiceId: invoice.id, dueOn, amount, description } : mode === "fee" ? { action: "fee", organizationId, invoiceId: invoice.id, description, amount } : { organizationId, invoiceId: invoice.id, type, amount, description }; const parsed = mode === "renegotiate" ? renegotiationSchema.safeParse(body) : mode === "fee" ? invoiceFeeSchema.safeParse(body) : invoiceAdjustmentSchema.safeParse(body); if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Revise os dados."); setSaving(true); setError(""); try { const response = await fetch(`/api/finance/${invoice.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data: { error?: string } = await response.json(); if (!response.ok) throw new Error(data.error ?? "Não foi possível atualizar a fatura."); show("Fatura atualizada."); router.refresh(); setOpen(false); setSaving(false); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível atualizar a fatura."); setSaving(false); } };
+  return <><button className="table-action" onClick={() => setOpen(true)} type="button">Ajustar</button>{open ? <Modal onClose={() => setOpen(false)} title="Ajustes e renegociação"><FormMessage tone="error">{error}</FormMessage><div className="wizard-fields"><label>Operação<select onChange={(event) => setMode(event.target.value as "adjust" | "fee" | "renegotiate")} value={mode}><option value="adjust">Aplicar ajuste</option><option value="fee">Adicionar taxa</option><option value="renegotiate">Renegociar</option></select></label>{mode === "adjust" ? <label>Tipo<select onChange={(event) => setType(event.target.value as keyof typeof labels)} value={type}>{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : mode === "fee" ? null : <label>Novo vencimento<input onChange={(event) => setDueOn(event.target.value)} type="date" value={dueOn} /></label>}<label>{mode === "adjust" ? "Valor do ajuste (R$)" : mode === "fee" ? "Valor da taxa (R$)" : "Novo valor total (R$)"}<input inputMode="decimal" onChange={(event) => setAmount(event.target.value.replace(",", "."))} value={amount} /></label><label>{mode === "fee" ? "Nome da taxa" : "Justificativa"}<input maxLength={500} onChange={(event) => setDescription(event.target.value)} value={description} /></label><button className="button" disabled={saving} onClick={save} type="button">{saving ? "Salvando..." : "Confirmar"}</button></div></Modal> : null}</>;
+}

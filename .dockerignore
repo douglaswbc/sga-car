@@ -1,0 +1,35 @@
+# Segredos e arquivos de ambiente
+.env*
+!.env.example
+
+# Dependências e artefatos recriados no container
+.next
+node_modules/
+out/
+coverage/
+*.tsbuildinfo
+
+# Metadados, documentação e configuração local sem efeito no build
+.git
+.github/
+.idea/
+.vscode/
+AGENTS.md
+docs
+
+# Logs, backups e arquivos de sistema
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.dump
+*.bak
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+.DS_Store
+Thumbs.db

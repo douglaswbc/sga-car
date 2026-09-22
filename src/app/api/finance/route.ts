@@ -1,0 +1,12 @@
+import { NextResponse } from "next/server";
+import { generateInvoicesSchema, manualInvoiceSchema } from "@/features/finance/finance-schema";
+import { recordAudit } from "@/lib/audit";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export async function POST(request: Request) {
+  const payload: unknown = await request.json().catch(() => null); const mode = typeof payload === "object" && payload !== null && "mode" in payload && payload.mode === "generate" ? "generate" : "manual";
+  const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
+  if (mode === "generate") { const parsed = generateInvoicesSchema.safeParse(payload); if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." }, { status: 422 }); const { error, data } = await supabase.rpc("generate_contract_invoices", { target_organization_id: parsed.data.organizationId, generate_until: parsed.data.generateUntil }); if (error) return NextResponse.json({ error: "Não foi possível gerar as faturas." }, { status: 409 }); await recordAudit(supabase, { organizationId: parsed.data.organizationId, action: "invoice.generated", entityType: "invoice", summary: `${data ?? 0} fatura(s) recorrente(s) gerada(s)`, metadata: { created: data ?? 0, generateUntil: parsed.data.generateUntil } }); return NextResponse.json({ created: data }); }
+  const parsed = manualInvoiceSchema.safeParse(payload); if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." }, { status: 422 }); const invoice = parsed.data; const { error } = await supabase.rpc("create_manual_invoice", { target_organization_id: invoice.organizationId, target_tenant_id: invoice.tenantId, target_contract_id: invoice.contractId || null, invoice_due_on: invoice.dueOn, invoice_amount: invoice.amount, invoice_description: invoice.description ?? "" });
+  if (error) return NextResponse.json({ error: "Não foi possível criar a cobrança." }, { status: 409 }); await recordAudit(supabase, { organizationId: invoice.organizationId, action: "invoice.created", entityType: "invoice", summary: `Cobrança avulsa de ${invoice.amount}`, metadata: { tenantId: invoice.tenantId, dueOn: invoice.dueOn } }); return NextResponse.json({ ok: true }, { status: 201 });
+}

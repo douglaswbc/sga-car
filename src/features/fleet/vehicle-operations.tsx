@@ -1,0 +1,12 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormMessage } from "@/components/form-message";
+import { Modal } from "@/components/modal";
+import { useToast } from "@/components/toast";
+import type { Vehicle } from "@/lib/supabase/types";
+export function VehicleOperations({ organizationId, vehicle }: Readonly<{organizationId:string;vehicle:Vehicle}>) {
+ const router=useRouter(); const { show }=useToast(); const [open,setOpen]=useState(false); const [saving,setSaving]=useState(false); const [mode,setMode]=useState<"odometer"|"maintenance">("odometer"); const [value,setValue]=useState(""); const [title,setTitle]=useState(""); const [date,setDate]=useState(new Date().toISOString().slice(0,10)); const [error,setError]=useState("");
+ const save=async()=>{const body=mode==="odometer"?{action:"odometer",organizationId,recordedOn:date,odometerKm:value,note:""}:{action:"maintenance",organizationId,type:"preventive",title,scheduledOn:date,scheduledOdometerKm:value||undefined,cost:0,notes:""};setSaving(true);setError("");const r=await fetch("/api/vehicles/"+vehicle.id+"/operations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d:{error?:string}=await r.json();if(!r.ok){setError(d.error??"Não foi possível salvar.");setSaving(false);return;}setOpen(false);setSaving(false);show("Operação registrada.");router.refresh();};
+ return <><a className="table-action" href={"/frota/" + vehicle.id}>Detalhe</a><button className="table-action" onClick={()=>setOpen(true)} type="button">Operação</button>{open?<Modal onClose={()=>setOpen(false)} title={`${vehicle.brand} ${vehicle.model}`}><FormMessage tone="error">{error}</FormMessage><div className="wizard-fields"><label>Registro<select onChange={e=>setMode(e.target.value as "odometer"|"maintenance")} value={mode}><option value="odometer">Quilometragem</option><option value="maintenance">Agendar manutenção</option></select></label>{mode==="maintenance"?<label>Serviço<input onChange={e=>setTitle(e.target.value)} value={title}/></label>:null}<label>Data<input onChange={e=>setDate(e.target.value)} type="date" value={date}/></label><label>{mode==="odometer"?"Quilometragem atual":"Km previsto (opcional)"}<input onChange={e=>setValue(e.target.value.replace(/\D/g,""))} value={value}/></label><button className="button" disabled={saving} onClick={save} type="button">{saving?"Salvando...":"Salvar"}</button></div></Modal>:null}</>;
+}
