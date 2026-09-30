@@ -1,5 +1,5 @@
 // O worker gerado pelo OpenNext exporta apenas o handler `fetch`. Para registrar
-// Cron Triggers é preciso involved-lo e reexpor um handler `scheduled`.
+// Cron Triggers é preciso envolvê-lo e reexpor um handler `scheduled`.
 //
 // O agendador interno de mensagens (`src/instrumentation.ts`) usava `setInterval`,
 // que não sobrevive no Workers: não há processo de longa duração. A fila de
@@ -9,6 +9,10 @@
 // O handler reentra pelo próprio `fetch` (via service binding) porque o contexto de
 // request do OpenNext — onde as bindings são resolvidas — só existe dentro de `fetch`.
 // Chamar a função de dispatch diretamente deixaria as ligações de banco indisponíveis.
+//
+// Não reexportamos DOQueueHandler nem DOShardedTagCache: o build só gera esses exports
+// quando `queue` e `tagCache` estão configurados em `open-next.config.ts`, que aqui não
+// estão. Referenciá-los quebraria o bundle.
 //
 // @ts-ignore `.open-next/worker.js` é gerado em tempo de build.
 import { default as handler } from "./.open-next/worker.js";
@@ -59,7 +63,3 @@ async function runDispatch(env: CloudflareEnv): Promise<number> {
   });
   return response.status;
 }
-
-// Reexportações exigidas quando a app usa DO Queue e DO Tag Cache.
-// @ts-ignore `.open-next/worker.js` é gerado em tempo de build.
-export { DOQueueHandler, DOShardedTagCache } from "./.open-next/worker.js";

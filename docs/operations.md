@@ -60,7 +60,7 @@ Validação periódica (trimestral): restaurar o último dump em um banco isolad
 
 - [ ] Domínio apontando para o Worker e TLS ativo.
 - [ ] Segredos cadastrados com `npx wrangler secret put`: `DATABASE_URL`, `INTEGRATION_ENCRYPTION_KEY`, `MESSAGING_DISPATCH_TOKEN`, `RESEND_API_KEY`, `SGA_EMAIL_FROM`.
-- [ ] Bucket R2 de cache criado e vinculado em `wrangler.jsonc`.
+- [ ] `NEXT_PUBLIC_SITE_URL` em `wrangler.jsonc` apontando para a URL real, e não para `localhost`.
 - [ ] `/api/health` monitorado com alerta.
 - [ ] Backup agendado e uma restauração testada em banco isolado.
 - [ ] Rate limit ativo e revisado.

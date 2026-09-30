@@ -21,6 +21,6 @@
     "enabled": true
   },
   "vars": {
-    "NEXT_PUBLIC_SITE_URL": "http://localhost:3000"
+    "NEXT_PUBLIC_SITE_URL": "https://sga-v2.SEU_SUBDOMAIN.workers.dev"
   }
 }

@@ -48,15 +48,7 @@ npm run migrate
 
 A raiz do certificado do banco já vem versionada em `supabase-ca.pem` — não há nada para baixar. Se precisar atualizá-la, substitua o arquivo e rode `npm run ca:sync`.
 
-### 2. Bucket de cache
-
-O Next.js exige um Incremental Cache configurado para concluir o bundle:
-
-```bash
-npx wrangler r2 bucket create sga-v2-opennext-cache
-```
-
-### 3. Segredos
+### 2. Segredos
 
 Cada segredo vai para a Cloudflare. Nada disso deve ir em `wrangler.jsonc` ou ser prefixado com `NEXT_PUBLIC_`:
 
@@ -71,19 +63,30 @@ npx wrangler secret put ZERNIO_API_BASE_URL
 
 Gere a chave mestra com `openssl rand -base64 32`. **Trocar `INTEGRATION_ENCRYPTION_KEY` invalida todas as credenciais de organização já gravadas** — elas são cifradas com AES-256-GCM e a chave é derivada por HKDF a partir desse valor.
 
-### 4. Deploy
+### 3. Deploy
+
+Antes de publicar, troque `NEXT_PUBLIC_SITE_URL` em `wrangler.jsonc` pela URL real do Worker (`https://sga-v2.<subdomain>.workers.dev`, ou o domínio próprio). Esse valor monta o retorno do callback de conexão do Zernio, a URL do webhook e os links dos e-mails.
 
 ```bash
-npm run deploy
+npm run deploy -- -- --keep-vars
 ```
 
+O `--keep-vars` impede que o deploy apague as variáveis configuradas no dashboard que não estejam em `wrangler.jsonc`.
+
 > O build do OpenNext usa `fs.symlink` e **não roda no Windows sem Developer Mode ou privilégio de administrador**, e o WSL não é substituto automático. Em Windows, use a integração com Git da Cloudflare (que compila em Linux) ou rode em WSL/Docker.
+
+### 4. Onde cada variável precisa estar
+
+`NEXT_PUBLIC_*` é um caso especial: o Next.js embute esses valores no bundle do navegador em **tempo de build**, além de lê-los em runtime no servidor. Então:
+
+- **Deploy local (`npm run deploy`):** o `next build` carrega o `.env`, então `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` chegam ao bundle.
+- **Integração com Git da Cloudflare:** eles vão em **Build variables and secrets** no painel, não em Secrets. Sem isso o bundle do navegador fica com os valores de `.env.example` (placeholders).
 
 ## Atualização
 
 ```bash
 git pull
-npm run deploy
+npm run deploy -- -- --keep-vars
 ```
 
 ## Processamento da fila de mensagens

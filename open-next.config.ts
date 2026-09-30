@@ -1,9 +1,15 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
-import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
 
-// O SGA é uma aplicação autenticada: quase nada é cacheável, mas o Next.js ainda exige
-// umIncremental Cache configurado para concluir o build. O bucket R2 é criado com
-// `npx wrangler r2 bucket create sga-v2-opennext-cache` e ligado em `wrangler.jsonc`.
-export default defineCloudflareConfig({
-  incrementalCache: r2IncrementalCache,
-});
+// O SGA não usa cache. Todas as rotas são dinâmicas — a aplicação é autenticada e lida
+// cookies a cada request — e não há rota estática, `generateStaticParams` nem revalidação
+// por tempo. Não existe nada para pré-renderizar.
+//
+// Deixar `incrementalCache` de fora resolve para uma implementação interna ("dummy",
+// ver o default em `defineCloudflareConfig`), que é o comportamento oficial para
+// aplicações só-SSR. Isso também dispensa qualquer bucket R2 na conta.
+//
+// Se um dia houver conteúdo público e estático, configure aqui o
+// `@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache` e crie o
+// bucket com `npx wrangler r2 bucket create`, declarando o binding `NEXT_INC_CACHE_R2_BUCKET`
+// em `wrangler.jsonc`.
+export default defineCloudflareConfig({});
