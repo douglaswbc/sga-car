@@ -1,12 +1,9 @@
 import { spawnSync } from "node:child_process";
+import { requireDatabaseUrl } from "./supabase-tls.mjs";
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = requireDatabaseUrl();
 const file = process.argv[2];
 
-if (!databaseUrl) {
-  console.error("DATABASE_URL precisa estar configurada (use node --env-file=.env scripts/restore.mjs <arquivo.dump>).");
-  process.exit(1);
-}
 if (!file) {
   console.error("Informe o caminho do backup: node --env-file=.env scripts/restore.mjs backups/sga-....dump");
   process.exit(1);

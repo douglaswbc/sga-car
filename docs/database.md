@@ -28,6 +28,17 @@ organization ─┬─ organization_members ─ profile/auth user
 
 As migrations versionadas ficam em `supabase/migrations` e são executadas por `npm run migrate`, usando exclusivamente `DATABASE_URL`. O executor registra cada arquivo aplicado em `public.sga_schema_migrations` e processa cada migration em uma transação.
 
+O schema completo está em um único arquivo, `0001_baseline.sql`, gerado por `npm run db:baseline`, que concatena as migrations na ordem de nome. Ele é a fonte da verdade do schema, e **não deve ser editado à mão**: toda alteração nova é uma migration pequena acrescentada depois dele, nomeada `AAAAMMDDNNN_descricao.sql`, onde `NNN` continua a sequência global.
+
+Consolidar o histórico tem um custo que vale registrar: depois da consolidação, `sga_schema_migrations` deixa de dizer *quando* cada mudança entrou. Só é seguro fazer isso enquanto o banco não tem dado real, porque depois não há como reconstruir essa história. O processo foi:
+
+```bash
+npm run db:baseline            # gera 0001_baseline.sql a partir das migrations existentes
+npm run db:baseline:apply      # reescreve o histórico: N entradas -> 0001_baseline.sql
+```
+
+Antes de apagar as migrations de origem, vale confirmar que o baseline produz o mesmo schema num banco vazio. Uma forma de fazer isso sem provisionar um banco é aplicar o arquivo num schema descartável, reescrevendo `public.` para outro nome, e comparar o catálogo de objetos dos dois schemas.
+
 ## Locatários
 
 `tenants` armazena o cadastro operacional por organização, com documento, contato e status explícito. `tenant_addresses` mantém endereço em uma tabela separada e `tenant_documents` guarda CNH, comprovantes e anexos (com número, categoria e validade para a CNH). Os dados são lidos por membros da organização ativa; gravação é restrita a `owner`, `admin` e `operations`.

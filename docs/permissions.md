@@ -36,7 +36,7 @@ Navegação, dashboard e guards de rota seguem a mesma matriz da autorização, 
 
 - `audit_logs` é imutável (sem update/delete; gravação só por `record_audit_event`) e registra ações administrativas e operacionais em contratos, faturas, pagamentos, convites e organizações.
 - Exportação e anonimização de dados do titular respeitam a retenção legal (ver `docs/lgpd.md`).
-- Limitação de taxa em login, cadastro, recuperação de senha, webhook da Meta e dispatcher (ver `docs/operations.md`).
+- Limitação de taxa em login, cadastro, recuperação de senha e dispatcher (ver `docs/operations.md`).
 
 ## Modelo de segurança
 

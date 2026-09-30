@@ -36,8 +36,8 @@ Use um domínio e remetente exclusivos para autenticação; não misture esses e
 Os e-mails transacionais do SGA (`member_invite`, `invoice_created`, `payment_receipt`, `invoice_due_soon`, `invoice_overdue`) usam a API HTTP da Resend, não o SMTP do Supabase. Antes de liberar:
 
 1. Domínio verificado no Resend (SPF, DKIM e DMARC publicados).
-2. `RESEND_API_KEY`, `SGA_EMAIL_FROM` (remetente no domínio verificado) e, opcionalmente, `SGA_EMAIL_REPLY_TO` definidos no `.env` da VPS.
-3. `MESSAGING_DISPATCH_TOKEN` definido e um cron/n8n chamando `POST /api/messaging/dispatch` com o header `x-dispatch-token`.
+2. `RESEND_API_KEY`, `SGA_EMAIL_FROM` (remetente no domínio verificado) e, opcionalmente, `SGA_EMAIL_REPLY_TO` cadastrados como segredos do Worker (`npx wrangler secret put`).
+3. `MESSAGING_DISPATCH_TOKEN` definido e o Cron Trigger da Cloudflare chamando `POST /api/messaging/dispatch` (ver `docs/deployment.md`).
 4. Em `/comunicacao/canais`, validar a chave (deve mostrar o domínio do remetente como `verified`) e enviar um e-mail de teste.
 5. Testar um convite de equipe ponta a ponta (link em `/convite/[token]`) e uma cobrança gerada.
 

@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext"],
+    "types": []
+  },
+  "include": ["cloudflare-env.d.ts", "worker.ts", "open-next.config.ts"]
+}

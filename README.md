@@ -28,11 +28,13 @@ npm install
 npm run dev
 ```
 
-## Implantação em VPS
+## Implantação
 
-O SGA pode ser executado de forma independente em uma VPS com Docker Compose: Next.js para interface e API, PostgreSQL privado e Caddy para HTTPS. Não há dependência de Supabase hospedado.
+O SGA é implantado como um **Cloudflare Worker** e usa o **Supabase** como banco de dados oficial. Não há Docker, VPS ou proxy reverso: o bundle é gerado pelo [OpenNext](https://opennext.js.org/cloudflare) e publicado com `npm run deploy`.
 
-Copie `.env.example` para `.env`, preencha os segredos exclusivamente no servidor e siga o guia de [implantação](docs/deployment.md). Nunca versione o `.env`, dumps do banco ou tokens da Meta Cloud API.
+Copie `.env.example` para `.env` localmente e, em produção, cadastre cada segredo com `npx wrangler secret put`. Siga o guia de [implantação](docs/deployment.md). Nunca versione o `.env`, dumps do banco ou API keys do Zernio.
+
+O canal de WhatsApp é entregue pelo [Zernio](https://docs.zernio.com): cada organização informa a própria API key e o `accountId` da sua conta de WhatsApp, e essas credenciais ficam criptografadas no banco. A integração direta com a Meta Cloud API foi removida. Veja [mensageria](docs/messaging.md).
 
 ## Autenticação
 

@@ -1,12 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { requireDatabaseUrl } from "./supabase-tls.mjs";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  console.error("DATABASE_URL precisa estar configurada (use node --env-file=.env scripts/backup.mjs).");
-  process.exit(1);
-}
+const databaseUrl = requireDatabaseUrl();
 
 const directory = process.env.BACKUP_DIR ?? "backups";
 mkdirSync(directory, { recursive: true });

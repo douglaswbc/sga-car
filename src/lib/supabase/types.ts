@@ -292,10 +292,11 @@ export type Database = {
       dashboard_received_amount: { Args: { target_organization_id: string; period_starts_on: string; period_ends_on: string }; Returns: number };
       list_dashboard_reports: { Args: { target_organization_id: string }; Returns: DashboardReport[] };
       save_dashboard_report: { Args: { target_organization_id: string; report_name: string; period_starts_on: string; period_ends_on: string }; Returns: DashboardReport };
-      ensure_organization_meta_whatsapp_templates: { Args: { target_organization_id: string }; Returns: undefined };
-      list_organization_meta_whatsapp_templates: { Args: { target_organization_id: string }; Returns: { id: string; code: string; name: string; body: string; scheduled_at: string; status: string; rejection_reason: string | null; last_synced_at: string | null }[] };
-      get_organization_whatsapp_connection_status: { Args: { target_organization_id: string }; Returns: { business_account_id: string; phone_number_id: string; configured: boolean }[] };
-      create_organization_meta_whatsapp_template: { Args: { target_organization_id: string; template_name: string; template_category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; template_language: string; template_body: string; template_examples: string[] }; Returns: undefined };
+      ensure_organization_zernio_whatsapp_templates: { Args: { target_organization_id: string }; Returns: undefined };
+      list_organization_zernio_whatsapp_templates: { Args: { target_organization_id: string }; Returns: { id: string; code: string; name: string; body: string; scheduled_at: string; status: string; rejection_reason: string | null; last_synced_at: string | null }[] };
+      get_organization_zernio_connection_status: { Args: { target_organization_id: string }; Returns: { account_id: string; display_name: string | null; configured: boolean; profile_id: string | null }[] };
+      get_organization_zernio_webhook_status: { Args: { target_organization_id: string }; Returns: { webhook_id: string | null; webhook_events: string[]; registered_at: Date | null; configured: boolean }[] };
+      create_organization_zernio_whatsapp_template: { Args: { target_organization_id: string; template_name: string; template_category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; template_language: string; template_body: string; template_examples: string[] }; Returns: undefined };
     };
     Enums: {
       organization_status: "pending" | "active" | "suspended";

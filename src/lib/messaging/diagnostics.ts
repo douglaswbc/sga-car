@@ -3,7 +3,7 @@ import { sendEmail } from "@/lib/messaging/providers/email";
 const requestTimeoutMs = 8000;
 
 export type MessagingConfigStatus = {
-  meta: { accessToken: boolean; phoneNumberId: boolean; verifyToken: boolean; appSecret: boolean; graphVersion: string; webhookUrl: string };
+  zernio: { apiBaseUrl: string };
   email: { apiKey: boolean; from: string; senderAddress: string; replyTo: boolean; ready: boolean; missing: string[] };
 };
 
@@ -14,18 +14,10 @@ export function getMessagingConfigStatus(): MessagingConfigStatus {
   const missing: string[] = [];
   if (!apiKey) missing.push("RESEND_API_KEY");
   if (!from) missing.push("SGA_EMAIL_FROM");
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-  const webhookUrl = siteUrl ? `${siteUrl}/api/webhooks/whatsapp` : "/api/webhooks/whatsapp";
 
   return {
-    meta: {
-      accessToken: Boolean(process.env.META_WHATSAPP_ACCESS_TOKEN),
-      phoneNumberId: Boolean(process.env.META_WHATSAPP_PHONE_NUMBER_ID),
-      verifyToken: Boolean(process.env.META_WHATSAPP_VERIFY_TOKEN),
-      appSecret: Boolean(process.env.META_WHATSAPP_APP_SECRET),
-      graphVersion: process.env.META_WHATSAPP_GRAPH_VERSION ?? "v21.0",
-      webhookUrl,
-    },
+    // A API key do Zernio é por organização e fica no banco, então nada é global.
+    zernio: { apiBaseUrl: process.env.ZERNIO_API_BASE_URL ?? "https://zernio.com/api/v1" },
     email: {
       apiKey,
       from,
@@ -35,31 +27,6 @@ export function getMessagingConfigStatus(): MessagingConfigStatus {
       missing,
     },
   };
-}
-
-export type WhatsAppConnectionResult =
-  | { ok: true; phoneNumberId: string; displayPhoneNumber?: string; verifiedName?: string; qualityRating?: string }
-  | { ok: false; error: string; code?: number };
-
-export async function verifyWhatsAppConnection(): Promise<WhatsAppConnectionResult> {
-  const accessToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
-  const graphVersion = process.env.META_WHATSAPP_GRAPH_VERSION ?? "v21.0";
-  if (!accessToken || !phoneNumberId) return { ok: false, error: "Meta WhatsApp não está configurado (token ou phone number ID ausente)." };
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
-  try {
-    const url = new URL(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}`);
-    url.searchParams.set("fields", "id,display_phone_number,verified_name,quality_rating");
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: controller.signal, cache: "no-store" });
-    const data: { id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string; error?: { message?: string; code?: number } } | null = await response.json().catch(() => null);
-    if (!response.ok || data?.error) return { ok: false, error: data?.error?.message ?? `A Meta respondeu com status ${response.status}.`, code: data?.error?.code };
-    return { ok: true, phoneNumberId: data?.id ?? phoneNumberId, displayPhoneNumber: data?.display_phone_number, verifiedName: data?.verified_name, qualityRating: data?.quality_rating };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error && error.name === "AbortError" ? "Tempo esgotado ao falar com a Meta." : "Não foi possível conectar à Meta." };
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 export type ResendConnectionResult =

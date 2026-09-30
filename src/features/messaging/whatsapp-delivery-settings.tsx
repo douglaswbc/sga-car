@@ -10,12 +10,17 @@ const options = [
   {
     value: "sga",
     title: "Pelo SGA (automático)",
-    description: "O SGA inicia e envia os avisos de cobrança pelo WhatsApp (Meta Cloud API), no processamento da fila. Não exige configuração externa.",
+    description: "O SGA inicia e envia os avisos de cobrança pelo WhatsApp via Zernio, no processamento da fila. É o padrão e não exige configuração externa.",
   },
   {
     value: "n8n",
     title: "Pelo n8n (via token de API)",
     description: "Uma automação externa (ex.: n8n) chama a API de integração com um token para iniciar o envio. O SGA continua enviando as mensagens; apenas o disparo automático do SGA é desativado para não duplicar.",
+  },
+  {
+    value: "zernio",
+    title: "Somente pelo Zernio (desativar o SGA)",
+    description: "Use quando todas as mensagens de WhatsApp forem disparadas fora do SGA, mas o SGA continue acessível para envios manuais. As mensagens pendentes ficam na fila sem serem processadas automaticamente.",
   },
 ] as const;
 
@@ -41,9 +46,9 @@ export function WhatsappDeliverySettings({ organizationId, current }: Readonly<{
       <header className="panel-header">
         <div>
           <h2>Quem inicia os envios de WhatsApp</h2>
-          <p>As mensagens são as cobranças e avisos de vencimento. A entrega é sempre feita pelo SGA, usando as credenciais da Meta desta organização.</p>
+          <p>As mensagens são as cobranças e avisos de vencimento. A entrega é sempre feita pelo SGA, usando a conexão Zernio configurada por esta organização.</p>
         </div>
-        <span className={`status status--${delivery === "n8n" ? "neutral" : "success"}`}><span aria-hidden="true" />{delivery === "n8n" ? "n8n" : "SGA"}</span>
+        <span className={`status status--${delivery === "sga" ? "success" : "neutral"}`}><span aria-hidden="true" />{delivery === "sga" ? "SGA" : delivery === "n8n" ? "n8n" : "Externo"}</span>
       </header>
       <div className="connection-body">
         <FormMessage tone="error">{error}</FormMessage>
@@ -58,7 +63,7 @@ export function WhatsappDeliverySettings({ organizationId, current }: Readonly<{
             </label>
           ))}
         </div>
-        <p className="field-hint">Nos dois modos as credenciais da Meta ficam no SGA (criptografadas). No modo n8n, crie um token com o escopo <code>messaging:send</code> em Configurações → Integrações. Saiba mais em <code>docs/n8n-messaging.md</code>.</p>
+        <p className="field-hint">A API key do Zernio fica no SGA, criptografada com <code>INTEGRATION_ENCRYPTION_KEY</code>. No modo n8n, crie um token com o escopo <code>messaging:send</code> em Configurações → Integrações. Saiba mais em <code>docs/n8n-messaging.md</code>.</p>
       </div>
     </article>
   );

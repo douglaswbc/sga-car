@@ -1,0 +1,28 @@
+# Variáveis usadas por `wrangler dev` e `opennextjs-cloudflare preview`.
+# Nunca versionar o arquivo `.dev.vars` real — ele carrega os mesmos segredos de `.env`.
+# Em producao, use `npx wrangler secret put <NOME>`.
+
+NEXTJS_ENV=development
+
+# Supabase: pooler em transaction mode (porta 6543). A CA raiz vem embutida no bundle
+# a partir de supabase-ca.pem — nao ha variavel de certificado.
+DATABASE_URL=postgresql://postgres.PROJECT_REF:SENHA@aws-0-REGIAO.pooler.supabase.com:6543/postgres?sslmode=require
+
+# Chave mestra de criptografia das credenciais por organizacao (Zernio).
+INTEGRATION_ENCRYPTION_KEY=troque-por-uma-chave-secreta-de-no-minimo-32-caracteres
+
+# Base da API do Zernio.
+ZERNIO_API_BASE_URL=https://zernio.com/api/v1
+
+# Protege POST /api/messaging/dispatch, invocado pelo Cron Trigger.
+MESSAGING_DISPATCH_TOKEN=replace-with-a-long-random-secret
+
+# E-mail transacional.
+RESEND_API_KEY=
+SGA_EMAIL_FROM=SGA <no-reply@seu-dominio.com>
+SGA_EMAIL_REPLY_TO=
+
+# Somente leitura em `wrangler dev`; nunca usar service_role no cliente.
+NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_SUBSTITUA_PELA_CHAVE
+NEXT_PUBLIC_SITE_URL=http://localhost:3000

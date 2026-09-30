@@ -4,6 +4,11 @@
     "context7": {
       "type": "remote",
       "url": "https://mcp.context7.com/mcp"
+    },
+    "zernio": {
+      "type": "remote",
+      "url": "https://mcp.zernio.com/mcp",
+      "enabled": true
     }
   }
 }

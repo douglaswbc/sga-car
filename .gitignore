@@ -5,15 +5,25 @@ out/
 coverage/
 *.tsbuildinfo
 
+# Artefatos de build e estado local do Cloudflare Workers (OpenNext/Wrangler)
+.open-next/
+.wrangler/
+
 # Arquivos de ambiente e segredos (o modelo pode ser versionado)
 .env*
 !.env.example
+.dev.vars*
+!.dev.vars.example
 *.pem
 *.key
 *.crt
 *.cer
 *.pfx
 *.p12
+# A CA raiz do Supabase e publica (a mesma para todos os clientes) e precisa
+# estar no repositorio: o runtime do Workers nao tem sistema de arquivos para
+# le-la, e o caminho nao pode depender de variavel de ambiente.
+!supabase-ca.pem
 
 # Backups e exports locais de banco
 *.dump

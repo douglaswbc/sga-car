@@ -14,7 +14,7 @@ const createSchema = z.object({
 });
 
 const revokeSchema = z.object({ organizationId: z.string().uuid(), tokenId: z.string().uuid() });
-const deliverySchema = z.object({ organizationId: z.string().uuid(), delivery: z.enum(["sga", "n8n"]) });
+const deliverySchema = z.object({ organizationId: z.string().uuid(), delivery: z.enum(["sga", "n8n", "zernio"]) });
 
 export async function createApiToken(input: unknown): Promise<{ token?: string; error?: string }> {
   const parsed = createSchema.safeParse(input);

@@ -1,7 +1,7 @@
 import { query } from "@/lib/db";
 import { renderTemplate, templateParameters, whatsappEventParameters } from "@/lib/messaging/render";
 import { sendEmail } from "@/lib/messaging/providers/email";
-import { sendWhatsApp } from "@/lib/messaging/providers/whatsapp";
+import { sendWhatsApp } from "@/lib/messaging/providers/whatsapp-zernio";
 import type { MessageChannel, MessageEvent } from "@/lib/supabase/types";
 
 type ClaimedMessage = {

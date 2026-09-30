@@ -7,9 +7,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "ca:sync": "node scripts/sync-supabase-ca.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
     "migrate": "node --env-file=.env scripts/migrate.mjs",
+    "db:baseline": "node scripts/squash-migrations.mjs",
+    "db:baseline:apply": "node --env-file=.env scripts/baseline-reconcile.mjs",
+    "rollback:zernio": "node --env-file=.env scripts/rollback-zernio.mjs",
     "backup": "node --env-file=.env scripts/backup.mjs",
     "restore": "node --env-file=.env scripts/restore.mjs",
     "promote:master": "node --env-file=.env scripts/promote-platform-admin.mjs"
@@ -26,12 +34,20 @@
     "zod": "^4.6.4"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.7",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
     "eslint-config-next": "^16.0.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^4.144.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260926.1": true,
+    "esbuild@0.25.4": true,
+    "esbuild@0.28.1": true,
+    "unrs-resolver@1.12.2": true
   }
 }
