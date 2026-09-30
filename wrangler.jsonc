@@ -1,6 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "sga-v2",
+  // O nome precisa ser idêntico ao Worker criado no dashboard. O Workers Builds
+  // sobrescreve esse campo com `WRANGLER_CI_OVERRIDE_NAME` quando há divergência e
+  // tenta abrir um PR para corrigir; enquanto isso, qualquer `services` abaixo que
+  // aponte para outro nome quebra o deploy com "references Worker ... not found".
+  "name": "sga",
   "main": "./worker.ts",
   "compatibility_date": "2026-01-15",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -10,8 +14,11 @@
   },
   "services": [
     {
+      // O Cron Trigger reentra na própria rota POST /api/messaging/dispatch pelo
+      // service binding, porque o contexto de request do OpenNext só existe dentro de
+      // `fetch`. O host é irrelevante: um service binding não sai pela internet pública.
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "sga-v2"
+      "service": "sga"
     }
   ],
   "triggers": {
@@ -20,7 +27,15 @@
   "observability": {
     "enabled": true
   },
+  // Apenas valores públicos. `DATABASE_URL`, `INTEGRATION_ENCRYPTION_KEY`,
+  // `MESSAGING_DISPATCH_TOKEN`, `RESEND_API_KEY` e `SGA_EMAIL_FROM` são secrets e
+  // nunca entram aqui — ver docs/deployment.md.
+  //
+  // Atenção: `NEXT_PUBLIC_*` é embutido no bundle em tempo de build, não lido em
+  // runtime. Esta entrada é inerte para o código do Worker; a origem que vale mesmo é
+  // a build variable do mesmo nome no painel do Workers Builds.
   "vars": {
-    "NEXT_PUBLIC_SITE_URL": "https://sga-v2.SEU_SUBDOMAIN.workers.dev"
+    "NEXT_PUBLIC_SITE_URL": "https://sga.SEU_SUBDOMAIN.workers.dev",
+    "ZERNIO_API_BASE_URL": "https://zernio.com/api/v1"
   }
 }

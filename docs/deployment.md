@@ -50,7 +50,7 @@ A raiz do certificado do banco já vem versionada em `supabase-ca.pem` — não 
 
 ### 2. Segredos
 
-Cada segredo vai para a Cloudflare. Nada disso deve ir em `wrangler.jsonc` ou ser prefixado com `NEXT_PUBLIC_`:
+Cada segredo vai para a Cloudflare como *secret*. Nada disso deve ir em `wrangler.jsonc` nem ser prefixado com `NEXT_PUBLIC_`:
 
 ```bash
 npx wrangler secret put DATABASE_URL
@@ -58,29 +58,57 @@ npx wrangler secret put INTEGRATION_ENCRYPTION_KEY
 npx wrangler secret put MESSAGING_DISPATCH_TOKEN
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put SGA_EMAIL_FROM
-npx wrangler secret put ZERNIO_API_BASE_URL
 ```
 
 Gere a chave mestra com `openssl rand -base64 32`. **Trocar `INTEGRATION_ENCRYPTION_KEY` invalida todas as credenciais de organização já gravadas** — elas são cifradas com AES-256-GCM e a chave é derivada por HKDF a partir desse valor.
 
-### 3. Deploy
+`ZERNIO_API_BASE_URL` **não** é segredo: é uma URL pública e fica em `vars`, no `wrangler.jsonc`.
 
-Antes de publicar, troque `NEXT_PUBLIC_SITE_URL` em `wrangler.jsonc` pela URL real do Worker (`https://sga-v2.<subdomain>.workers.dev`, ou o domínio próprio). Esse valor monta o retorno do callback de conexão do Zernio, a URL do webhook e os links dos e-mails.
+> **Use `secret put`, não o campo `vars`.** Uma variável em texto no `vars` é exposta no painel e o `wrangler` a imprime no diff de configuração a cada deploy. Foi assim que a senha do `DATABASE_URL` apareceu em claro no log de build.
+
+### 3. Nome do Worker
+
+O `name` em `wrangler.jsonc` **precisa** ser idêntico ao Worker criado no dashboard. O Workers Builds detecta a divergência, sobrescreve o campo com `WRANGLER_CI_OVERRIDE_NAME` e tenta abrir um pull request para corrigir.
+
+Enquanto houver divergência, qualquer `services` que aponte para o nome antigo derruba o deploy:
+
+```
+Service binding 'WORKER_SELF_REFERENCE' references Worker 'sga-v2' which was not found [code: 10143]
+```
+
+O service binding de `worker.ts` referencia o próprio Worker, então os dois nomes precisam ser trocados juntos.
+
+### 4. Deploy
+
+Antes de publicar, troque `NEXT_PUBLIC_SITE_URL` em `wrangler.jsonc` pela URL real do Worker (`https://sga.<subdomain>.workers.dev`, ou o domínio próprio). Esse valor monta o retorno do callback de conexão do Zernio, a URL do webhook e os links dos e-mails.
 
 ```bash
 npm run deploy -- -- --keep-vars
 ```
 
-O `--keep-vars` impede que o deploy apague as variáveis configuradas no dashboard que não estejam em `wrangler.jsonc`.
+O `--keep-vars` impede que o deploy apague as *vars* configuradas no dashboard que não estejam em `wrangler.jsonc`. Ele não protege secrets — a Cloudflare nunca apaga secrets em um deploy, com ou sem a flag.
 
 > O build do OpenNext usa `fs.symlink` e **não roda no Windows sem Developer Mode ou privilégio de administrador**, e o WSL não é substituto automático. Em Windows, use a integração com Git da Cloudflare (que compila em Linux) ou rode em WSL/Docker.
 
-### 4. Onde cada variável precisa estar
+### 5. Onde cada variável precisa estar
 
-`NEXT_PUBLIC_*` é um caso especial: o Next.js embute esses valores no bundle do navegador em **tempo de build**, além de lê-los em runtime no servidor. Então:
+`NEXT_PUBLIC_*` é um caso especial: o Next.js substitui o acesso por um **literal em tempo de build**, inclusive nos chunks de **servidor**. Depois do build, o código já não consulta mais `process.env` para essas chaves — ele devolve uma constante embutida:
+
+```js
+function c(){return "https://sga.<subdomain>.workers.dev".replace(/\/$/,"")}
+```
+
+Duas consequências:
+
+- Definir essas variáveis **depois** do deploy não corrige nada. O valor errado fica congelado no bundle.
+- A entrada equivalente no `vars` do `wrangler.jsonc` é **inerte** para o código do Worker. Ela não substitui a build variable e não deve ser tratada como se configurasse algo.
+
+Então:
 
 - **Deploy local (`npm run deploy`):** o `next build` carrega o `.env`, então `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` chegam ao bundle.
-- **Integração com Git da Cloudflare:** eles vão em **Build variables and secrets** no painel, não em Secrets. Sem isso o bundle do navegador fica com os valores de `.env.example` (placeholders).
+- **Integração com Git da Cloudflare:** elas vão em **Build variables and secrets** no painel do Workers Builds, não em Secrets. Sem isso o bundle fica com `undefined` e o login no Supabase quebra sem erro visível.
+
+As demais (`DATABASE_URL`, `INTEGRATION_ENCRYPTION_KEY`, `MESSAGING_DISPATCH_TOKEN`, `RESEND_API_KEY`, `SGA_EMAIL_FROM`) são lidas em runtime e podem ser definidas depois do deploy, desde que antes de tráfego real.
 
 ## Atualização
 
