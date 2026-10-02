@@ -143,7 +143,7 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
         <span className={`status status--${configured ? "success" : "neutral"}`}><span aria-hidden="true" />{configured ? "Configurado" : "Não configurado"}</span>
       </header>
 
-      <div className="connection-body">
+      <div className="connection-body zernio-connection-body">
         <FormMessage tone="error">{error}</FormMessage>
         <FormMessage tone="notice">{notice}</FormMessage>
 
