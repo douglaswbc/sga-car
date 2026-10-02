@@ -14,6 +14,11 @@ const schema = z.object({
   returnTo: z.string().max(2048).optional(),
 });
 
+function databaseErrorCode(error: unknown) {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  return typeof error.code === "string" ? error.code : null;
+}
+
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Dados inválidos." }, { status: 422 });
@@ -29,10 +34,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, authUrl: await startConnectFlow(parsed.data.organizationId, parsed.data.brandName, parsed.data.apiKey, parsed.data.returnTo) });
   } catch (error) {
     if (error instanceof ZernioApiError) return NextResponse.json({ error: `O Zernio recusou a conexão: ${error.message}` }, { status: 502 });
+    const code = databaseErrorCode(error);
+    const message = error instanceof Error ? error.message : String(error);
     logger.error("zernio.connect_start_failed", {
       organizationId: parsed.data.organizationId,
-      error: error instanceof Error ? error.message : String(error),
+      error: message,
+      code,
     });
+    if (code === "42703") {
+      return NextResponse.json({ error: "O banco ainda não tem a estrutura do onboarding Zernio. Aplique a migration 0002_zernio_connect_onboarding.sql e tente novamente." }, { status: 503 });
+    }
+    if (/connection terminated|timeout|econnreset|epipe|etimedout/i.test(message)) {
+      return NextResponse.json({ error: "O SGA perdeu a conexão com o banco ao preparar o onboarding. Tente novamente em alguns instantes." }, { status: 503 });
+    }
     return NextResponse.json({ error: "Não foi possível preparar a conexão. Tente novamente; se persistir, consulte os logs do servidor." }, { status: 500 });
   }
 }
