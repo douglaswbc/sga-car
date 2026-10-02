@@ -6,7 +6,12 @@ import { ZernioApiError } from "@/features/zernio/api-client";
 
 export const runtime = "nodejs";
 
-const schema = z.object({ organizationId: z.string().uuid(), brandName: z.string().trim().max(60).optional() });
+const schema = z.object({
+  organizationId: z.string().uuid(),
+  brandName: z.string().trim().max(60).optional(),
+  apiKey: z.string().trim().min(20).max(4096).optional(),
+  returnTo: z.string().max(2048).optional(),
+});
 
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
@@ -20,7 +25,7 @@ export async function POST(request: Request) {
   if (!allowed) return NextResponse.json({ error: "Sem permissão para conectar o WhatsApp desta organização." }, { status: 403 });
 
   try {
-    return NextResponse.json({ ok: true, authUrl: await startConnectFlow(parsed.data.organizationId, parsed.data.brandName) });
+    return NextResponse.json({ ok: true, authUrl: await startConnectFlow(parsed.data.organizationId, parsed.data.brandName, parsed.data.apiKey, parsed.data.returnTo) });
   } catch (error) {
     if (error instanceof ZernioApiError) return NextResponse.json({ error: `O Zernio recusou a conexão: ${error.message}` }, { status: 502 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível iniciar a conexão." }, { status: 400 });

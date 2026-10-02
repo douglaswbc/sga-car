@@ -17,6 +17,7 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
   const [apiKey, setApiKey] = useState("");
   const [accountId, setAccountId] = useState(connection?.account_id ?? "");
   const [accounts, setAccounts] = useState<DiscoveredAccount[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,6 +41,7 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
 
   const discover = async () => {
     setDiscovering(true); setError(""); setNotice("");
+    setShowOnboarding(false);
     const response = await fetch("/api/messaging/zernio/connection", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -50,7 +52,7 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
     if (!response.ok) { setError(data.error ?? "Não foi possível consultar as contas."); return; }
     const found = data.accounts ?? [];
     setAccounts(found);
-    if (found.length === 0) { setError("Nenhuma conta de WhatsApp conectada nesta API key."); return; }
+    if (found.length === 0) { setShowOnboarding(true); setNotice("Sua API key está válida. Vamos conectar um número de WhatsApp agora."); return; }
     if (found.length === 1) { setAccountId(found[0].accountId); setNotice("Conta de WhatsApp encontrada e selecionada."); }
     else setNotice(`${found.length} contas de WhatsApp encontradas. Selecione a que o SGA deve usar.`);
   };
@@ -104,10 +106,11 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
    */
   const connect = async () => {
     setConnecting(true); setError(""); setNotice("");
+    const returnTo = `${window.location.pathname}${window.location.search}`;
     const response = await fetch("/api/messaging/zernio/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, brandName: "SGA" }),
+      body: JSON.stringify({ organizationId, brandName: "SGA", apiKey: showOnboarding || !configured ? apiKey : undefined, returnTo }),
     });
     const data: { authUrl?: string; error?: string } = await response.json();
     setConnecting(false);
@@ -146,7 +149,7 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
 
         <label className="field">
           <span>API key do Zernio</span>
-          <input autoComplete="off" onChange={(event) => setApiKey(event.target.value)} placeholder={configured ? "Informe uma nova chave para substituí-la" : "zn_..."} type="password" value={apiKey} />
+          <input autoComplete="off" onChange={(event) => { setApiKey(event.target.value); setAccounts([]); setShowOnboarding(false); setNotice(""); setError(""); }} placeholder={configured ? "Informe uma nova chave para substituí-la" : "zn_..."} type="password" value={apiKey} />
         </label>
         <div className="connection-actions">
           <button className="button button--secondary" disabled={!apiKey || discovering} onClick={discover} type="button">{discovering ? "Consultando..." : "Buscar contas"}</button>
@@ -167,18 +170,37 @@ export function ZernioConnection({ organizationId, connection, webhook }: Readon
           </div>
         ) : null}
 
-        {!accounts.length ? (
+        {showOnboarding ? (
+          <section className="zernio-onboarding" aria-labelledby="zernio-onboarding-title">
+            <div className="zernio-onboarding__icon" aria-hidden="true">✓</div>
+            <div className="zernio-onboarding__content">
+              <p className="eyebrow">Próximo passo</p>
+              <h3 id="zernio-onboarding-title">Conecte seu número de WhatsApp</h3>
+              <p>Ainda não há números conectados a esta API key. A Zernio vai abrir a conexão oficial com a Meta e, ao terminar, você volta para esta página.</p>
+              <ol>
+                <li>Entre na conta Meta da empresa.</li>
+                <li>Escolha ou crie uma conta do WhatsApp e confirme o número.</li>
+                <li>Conclua a autorização para retornar ao SGA.</li>
+              </ol>
+              <button className="button" disabled={connecting} onClick={connect} type="button">{connecting ? "Preparando conexão..." : "Conectar meu WhatsApp"}</button>
+            </div>
+          </section>
+        ) : null}
+
+        {!accounts.length && !showOnboarding ? (
           <label className="field">
             <span>ID da conta de WhatsApp</span>
             <input autoComplete="off" onChange={(event) => setAccountId(event.target.value)} placeholder="account_..." value={accountId} />
           </label>
         ) : null}
 
-        <div className="connection-actions">
-          <button className="button" disabled={!apiKey || !accountId || saving} onClick={save} type="button">{saving ? "Salvando..." : configured ? "Atualizar conexão" : "Salvar conexão"}</button>
-          {configured ? <button className="button button--secondary" disabled={testing} onClick={test} type="button">{testing ? "Testando..." : "Testar conexão"}</button> : null}
-          {keySaved ? <button className="button button--secondary" disabled={connecting} onClick={connect} type="button">{connecting ? "Abrindo..." : "Conectar número de WhatsApp"}</button> : null}
-        </div>
+        {!showOnboarding ? (
+          <div className="connection-actions">
+            <button className="button" disabled={!apiKey || !accountId || saving} onClick={save} type="button">{saving ? "Salvando..." : configured ? "Atualizar conexão" : "Salvar conexão"}</button>
+            {configured ? <button className="button button--secondary" disabled={testing} onClick={test} type="button">{testing ? "Testando..." : "Testar conexão"}</button> : null}
+            {keySaved ? <button className="button button--secondary" disabled={connecting} onClick={connect} type="button">{connecting ? "Abrindo..." : "Conectar número de WhatsApp"}</button> : null}
+          </div>
+        ) : null}
         <p className="field-hint">
           Conectar abre a tela da Zernio, que abre a conexão oficial com a Meta. O número aparece
           na sua conta da Zernio e volta para o SGA automaticamente. Use a busca de contas abaixo

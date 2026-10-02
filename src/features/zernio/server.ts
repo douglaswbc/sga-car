@@ -62,10 +62,17 @@ export async function requireZernioConnection(organizationId: string) {
  * de redirecionamento. Sem ele, o callback não teria como saber qual organização e qual
  * tentativa de conexão está concluindo.
  */
-export async function startConnectFlow(organizationId: string, brandName?: string) {
+function safeReturnPath(value?: string) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\r\n]/.test(value)) return "/comunicacao/canais";
+  return value;
+}
+
+export async function startConnectFlow(organizationId: string, brandName?: string, providedApiKey?: string, returnTo?: string) {
   const row = await readZernioConnectionRow(organizationId);
-  if (!row) throw new Error("Informe a API key do Zernio antes de conectar o número.");
-  const apiKey = decryptConnectionSecret(row.api_key_ciphertext);
+  const apiKey = providedApiKey?.trim() || (row ? decryptConnectionSecret(row.api_key_ciphertext) : undefined);
+  if (!apiKey) throw new Error("Informe a API key do Zernio antes de conectar o número.");
+  const apiKeyCiphertext = providedApiKey ? encryptConnectionSecret(apiKey) : row?.api_key_ciphertext;
+  const profileId = providedApiKey ? null : row?.profile_id ?? null;
 
   const nonce = randomBytes(24).toString("base64url");
   const siteUrl = publicSiteUrl();
@@ -76,8 +83,8 @@ export async function startConnectFlow(organizationId: string, brandName?: strin
 
   await query("delete from public.zernio_connect_sessions where organization_id = $1 and expires_at < now()", [organizationId]);
   await query(
-    "insert into public.zernio_connect_sessions (organization_id, nonce, profile_id, redirect_url) values ($1, $2, $3, $4)",
-    [organizationId, nonce, row.profile_id, redirectUrl.toString()],
+    "insert into public.zernio_connect_sessions (organization_id, nonce, profile_id, redirect_url, api_key_ciphertext, return_path) values ($1, $2, $3, $4, $5, $6)",
+    [organizationId, nonce, profileId, redirectUrl.toString(), apiKeyCiphertext ?? encryptConnectionSecret(apiKey), safeReturnPath(returnTo)],
   );
 
   const response = await getWhatsAppConnectUrl(apiKey, {
@@ -97,15 +104,27 @@ export async function startConnectFlow(organizationId: string, brandName?: strin
  * identifica a tentativa, e a organização é a do nonce — não a que veio no parâmetro.
  */
 export async function consumeConnectSession(nonce: string) {
-  const sessions = await query<{ id: string; organization_id: string; expires_at: Date; completed_at: Date | null }>(
-    "select id, organization_id, expires_at, completed_at from public.zernio_connect_sessions where nonce = $1",
+  const sessions = await query<{ id: string; organization_id: string; expires_at: Date; completed_at: Date | null; api_key_ciphertext: string | null; return_path: string }>(
+    "select id, organization_id, expires_at, completed_at, api_key_ciphertext, return_path from public.zernio_connect_sessions where nonce = $1",
     [nonce],
   );
   const session = sessions[0];
   if (!session) throw new Error("Conexão não reconhecida. Inicie o processo novamente.");
   if (session.completed_at) throw new Error("Esta conexão já foi concluída.");
-  if (new Date(session.expires_at).getTime() < Date.now()) throw new Error("A conexão expirou. Inicie o processo novamente.");
+  if (new Date(session.expires_at).getTime() < Date.now()) {
+    await query("update public.zernio_connect_sessions set api_key_ciphertext = null where id = $1", [session.id]);
+    throw new Error("A conexão expirou. Inicie o processo novamente.");
+  }
   return session;
+}
+
+export async function connectSessionReturnPath(nonce: string) {
+  const sessions = await query<{ return_path: string }>("select return_path from public.zernio_connect_sessions where nonce = $1", [nonce]);
+  return safeReturnPath(sessions[0]?.return_path);
+}
+
+export async function discardConnectSessionSecret(nonce: string) {
+  await query("update public.zernio_connect_sessions set api_key_ciphertext = null where nonce = $1", [nonce]);
 }
 
 export type ConnectOutcome = { ok: true; accountId: string; displayName: string | null } | { ok: false; error: string; errorCode: string | null; userFixable: boolean };
@@ -115,23 +134,27 @@ export type ConnectOutcome = { ok: true; accountId: string; displayName: string 
  * API key antes de gravar, para que um callback adulterado não aponte a organização para
  * uma conta de terceiro.
  */
-export async function completeConnectFlow(session: { id: string; organization_id: string }, accountId: string): Promise<ConnectOutcome> {
-  const { apiKey } = await requireZernioConnection(session.organization_id);
+export async function completeConnectFlow(session: { id: string; organization_id: string; api_key_ciphertext: string | null }, accountId: string): Promise<ConnectOutcome> {
+  const existing = session.api_key_ciphertext ? null : await requireZernioConnection(session.organization_id);
+  const apiKey = session.api_key_ciphertext ? decryptConnectionSecret(session.api_key_ciphertext) : existing?.apiKey;
+  const apiKeyCiphertext = session.api_key_ciphertext ?? existing?.row.api_key_ciphertext;
+  if (!apiKey || !apiKeyCiphertext) throw new Error("API key do Zernio não encontrada para concluir a conexão.");
   const accounts = await listAccounts(apiKey);
   const account = accounts.accounts?.find((item) => item._id === accountId);
   if (!account) {
-    await query("update public.zernio_connect_sessions set completed_at = now() where id = $1", [session.id]);
+    await query("update public.zernio_connect_sessions set completed_at = now(), api_key_ciphertext = null where id = $1", [session.id]);
     return { ok: false, error: "A conta conectada não aparece entre as contas de WhatsApp desta API key.", errorCode: "account_not_found", userFixable: false };
   }
 
   const displayName = account.displayName ?? account.username ?? null;
   await query(
-    `update public.organization_zernio_connections
-       set account_id = $2, profile_id = $3, display_name = $4, updated_at = now()
-     where organization_id = $1`,
-    [session.organization_id, accountId, account.profileId?._id ?? null, displayName],
+    `insert into public.organization_zernio_connections (organization_id, account_id, profile_id, api_key_ciphertext, display_name)
+     values ($1, $2, $3, $4, $5)
+     on conflict (organization_id) do update set account_id = excluded.account_id, profile_id = excluded.profile_id,
+       api_key_ciphertext = excluded.api_key_ciphertext, display_name = excluded.display_name, updated_at = now()`,
+    [session.organization_id, accountId, account.profileId?._id ?? null, apiKeyCiphertext, displayName],
   );
-  await query("update public.zernio_connect_sessions set completed_at = now() where id = $1", [session.id]);
+  await query("update public.zernio_connect_sessions set completed_at = now(), api_key_ciphertext = null where id = $1", [session.id]);
   return { ok: true, accountId, displayName };
 }
 

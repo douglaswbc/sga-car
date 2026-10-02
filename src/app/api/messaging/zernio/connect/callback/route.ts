@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { completeConnectFlow, consumeConnectSession } from "@/features/zernio/server";
+import { completeConnectFlow, connectSessionReturnPath, consumeConnectSession, discardConnectSessionSecret } from "@/features/zernio/server";
 
 export const runtime = "nodejs";
 
 /** Destino do usuário depois do retorno da Zernio, para não perder o contexto de onde ele saiu. */
-function channelsPage(params: Record<string, string | null>) {
-  const target = new URL("/comunicacao/canais", process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
+function channelsPage(params: Record<string, string | null>, returnTo = "/comunicacao/canais") {
+  const path = returnTo.startsWith("/") && !returnTo.startsWith("//") && !returnTo.includes("\\") ? returnTo : "/comunicacao/canais";
+  const target = new URL(path, process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
   if (params.notice) target.searchParams.set("notice", params.notice);
   if (params.error) target.searchParams.set("error", params.error);
   return NextResponse.redirect(target);
@@ -26,32 +27,34 @@ export async function GET(request: Request) {
   const error = url.searchParams.get("error");
 
   if (!nonce) return channelsPage({ error: "Conexão não reconhecida. Inicie o processo novamente." });
+  const returnTo = await connectSessionReturnPath(nonce).catch(() => "/comunicacao/canais");
   if (error) {
+    await discardConnectSessionSecret(nonce).catch(() => undefined);
     const message = url.searchParams.get("error_message") ?? error;
     const fixable = url.searchParams.get("is_user_fixable") === "true";
-    return channelsPage({ error: `A conexão do WhatsApp falhou: ${message}${fixable ? " Você pode tentar novamente." : ""}` });
+    return channelsPage({ error: `A conexão do WhatsApp falhou: ${message}${fixable ? " Você pode tentar novamente." : ""}` }, returnTo);
   }
 
   const accountId = url.searchParams.get("accountId");
-  if (!accountId) return channelsPage({ error: "A Zernio não informou qual conta foi conectada." });
+  if (!accountId) return channelsPage({ error: "A Zernio não informou qual conta foi conectada." }, returnTo);
 
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return channelsPage({ error: "Sua sessão expirou. Entre novamente para concluir a conexão." });
+  if (!user) return channelsPage({ error: "Sua sessão expirou. Entre novamente para concluir a conexão." }, returnTo);
 
   try {
     const session = await consumeConnectSession(nonce);
     const { data: organizations } = await supabase.rpc("get_my_organizations");
     const allowed = organizations?.some((org) => org.id === session.organization_id && org.status === "active" && ["owner", "admin"].includes(org.role));
-    if (!allowed) return channelsPage({ error: "Sem permissão para concluir esta conexão." });
+    if (!allowed) return channelsPage({ error: "Sem permissão para concluir esta conexão." }, returnTo);
 
     const outcome = await completeConnectFlow(session, accountId);
-    if (!outcome.ok) return channelsPage({ error: outcome.error });
+    if (!outcome.ok) return channelsPage({ error: outcome.error }, returnTo);
 
     await registerWebhookBestEffort(session.organization_id);
-    return channelsPage({ notice: `WhatsApp conectado: ${outcome.displayName ?? outcome.accountId}.` });
+    return channelsPage({ notice: `WhatsApp conectado: ${outcome.displayName ?? outcome.accountId}.` }, returnTo);
   } catch (error) {
-    return channelsPage({ error: error instanceof Error ? error.message : "Não foi possível concluir a conexão." });
+    return channelsPage({ error: error instanceof Error ? error.message : "Não foi possível concluir a conexão." }, returnTo);
   }
 }
 
