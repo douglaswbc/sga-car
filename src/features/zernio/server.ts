@@ -88,7 +88,7 @@ export async function startConnectFlow(organizationId: string, brandName?: strin
   );
 
   const response = await getWhatsAppConnectUrl(apiKey, {
-    profileId: row.profile_id ?? undefined,
+    profileId: profileId ?? undefined,
     redirectUrl: redirectUrl.toString(),
     brandName: brandName?.trim() || "SGA",
     language: "pt-BR",

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { startConnectFlow } from "@/features/zernio/server";
 import { ZernioApiError } from "@/features/zernio/api-client";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, authUrl: await startConnectFlow(parsed.data.organizationId, parsed.data.brandName, parsed.data.apiKey, parsed.data.returnTo) });
   } catch (error) {
     if (error instanceof ZernioApiError) return NextResponse.json({ error: `O Zernio recusou a conexão: ${error.message}` }, { status: 502 });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível iniciar a conexão." }, { status: 400 });
+    logger.error("zernio.connect_start_failed", {
+      organizationId: parsed.data.organizationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json({ error: "Não foi possível preparar a conexão. Tente novamente; se persistir, consulte os logs do servidor." }, { status: 500 });
   }
 }
